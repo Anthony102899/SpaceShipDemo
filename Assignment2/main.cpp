@@ -17,6 +17,7 @@ Student Name: LYU An
 #include <fstream>
 #include <vector>
 #include <map>
+#include <ctime>
 
 // screen setting
 const int SCR_WIDTH = 1000;
@@ -30,15 +31,15 @@ glm::vec3 endPoint = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 ambientLight(0.3f, 0.3f, 0.3f);
 glm::vec3 lightPosition(0.0f, 1.0f, 0.0f);
 size_t size[4];
-Texture craft_texture;
-Texture planet_texture_1;
-Texture planet_texture_2;
-Texture rock_texture_1;
-Texture rock_texture_2;
-Texture spacecraft_texture_1;
-Texture spacecraft_texture_2;
+Texture craft_texture[2];
+Texture planet_texture[2];
+Texture rock_texture[2];
+Texture spacecraft_texture[2];
 GLuint slot_1 = 0;
 GLuint slot_2 = 0;
+int past = time((time_t*)NULL);
+int past1 = time((time_t*)NULL);
+int craft_flag = 0, craft_texture_flag = 0, craft_move_flag = 0;
 //struct for storing the movement of object
 struct ViewInf {
 	glm::vec3 viewPoint;
@@ -53,6 +54,9 @@ struct ObjCoordinate{
 	GLfloat rotation;
 };
 ObjCoordinate spaceshipCoordinate;
+ObjCoordinate craftCoordinate1;
+ObjCoordinate craftCoordinate2;
+ObjCoordinate craftCoordinate3;
 
 ViewInf windowView;
 // struct for storing the obj file
@@ -193,16 +197,18 @@ void get_OpenGL_info()
 void sendDataToOpenGL()
 {
 	Model craft = loadOBJ("resources/craft/craft.obj");
+	Model craft = loadOBJ("resources/craft/craft.obj");
 	Model planet = loadOBJ("resources/planet/planet.obj");
 	Model rock = loadOBJ("resources/rock/rock.obj");
 	Model spacecraft = loadOBJ("resources/spacecraft/spacecraft.obj");
-	craft_texture.setupTexture("resources/craft/ringTexture.png");
-	planet_texture_1.setupTexture("resources/planet/earthTexture.png");
-	planet_texture_2.setupTexture("resources/planet/earthNormal.png");
-	rock_texture_1.setupTexture("resources/rock/rockTexture.png");
-	rock_texture_2.setupTexture("resources/rock/gold.png");
-	spacecraft_texture_1.setupTexture("resources/spacecraft/spacecraftTexture.png");
-	spacecraft_texture_2.setupTexture("resources/spacecraft/gold.png");
+	craft_texture[0].setupTexture("resources/craft/ringTexture.png");
+	craft_texture[1].setupTexture("resources/craft/Orange.png");
+	planet_texture[0].setupTexture("resources/planet/earthTexture.png");
+	planet_texture[1].setupTexture("resources/planet/earthNormal.png");
+	rock_texture[0].setupTexture("resources/rock/rockTexture.png");
+	rock_texture[1].setupTexture("resources/rock/gold.png");
+	spacecraft_texture[0].setupTexture("resources/spacecraft/spacecraftTexture.png");
+	spacecraft_texture[1].setupTexture("resources/spacecraft/gold.png");
 
 	/*
 	Model 1 : Air Craft (enemies)
@@ -287,6 +293,10 @@ void sendDataToOpenGL()
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
 }
 
+glm::vec3 craft1_pos1 = glm::vec3(-1.0f, 0.0f, 0.5f);
+glm::vec3 craft1_pos2 = glm::vec3(-0.5f, 0.0f, 0.5f);
+glm::vec3 craft1_pos3 = glm::vec3(0.5f, 0.0f, 0.5f);
+glm::vec3 craft1_pos4 = glm::vec3(1.0f, 0.0f, 0.5f);
 void initializedGL(void) //run only once
 {
 	if (glewInit() != GLEW_OK) {
@@ -300,6 +310,8 @@ void initializedGL(void) //run only once
 	windowView.endPoint = glm::vec3(0.0f, 0.0f, 0.0f);
 	spaceshipCoordinate.translation = glm::vec3(0.0f, 0.0f, 1.0f);
 	spaceshipCoordinate.rotation = 0.0f;
+	craftCoordinate1.translation = craft1_pos1;
+
 	myShader.setupShader("VertexShaderCode.glsl", "FragmentShaderCode.glsl");
 	myShader.use();
 
@@ -317,6 +329,7 @@ void paintGL(void)  //always run
 	//TODO:
 	// 	glBindVertexArray(vaoID[4]);
 	//Set lighting information, such as position and color of lighting source
+	int now = time((time_t*)NULL);
 	myShader.setVec3("ambientLight", ambientLight);
 	myShader.setVec3("lightPosition", lightPosition);
 	glm::vec3 eyePosition(0.0f, 0.0f, 0.2f);
@@ -341,13 +354,18 @@ void paintGL(void)  //always run
 	myShader.setMat4("projection", projection);
 	int independent = 0;
 	myShader.setInt("independent", independent);
-
-
-	craft_texture.bind(0);
 	myShader.setInt("sampler1", 0);
+
 	glBindVertexArray(vaoID[0]);
+	glm::mat4 modelTransformMatrix = glm::mat4(1.0f);
+	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
+	modelTransformMatrix = glm::translate(modelTransformMatrix, craftCoordinate1.translation);
+	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
 	glDrawElements(GL_TRIANGLES, size[0], GL_UNSIGNED_INT, 0);
+
 }
+float xstart = 400.0f, xoffset;
+float MouseSensitivity = 0.1f, yaw = 90.0f;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
