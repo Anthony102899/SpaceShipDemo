@@ -44,7 +44,10 @@ struct ViewInf {
 	glm::vec3 viewPoint;
 	glm::vec3 endPoint;
 };
+struct ViewShift {
+	glm::vec3 shift;
 
+};
 struct ObjCoordinate{
 	glm::vec3 translation;
 	GLfloat rotation;
@@ -189,8 +192,6 @@ void get_OpenGL_info()
 
 void sendDataToOpenGL()
 {
-	//TODO
-	//Load objects and bind to VAO and VBO
 	Model craft = loadOBJ("resources/craft/craft.obj");
 	Model planet = loadOBJ("resources/planet/planet.obj");
 	Model rock = loadOBJ("resources/rock/rock.obj");
@@ -342,8 +343,10 @@ void paintGL(void)  //always run
 	myShader.setInt("independent", independent);
 
 
-
-	
+	craft_texture.bind(0);
+	myShader.setInt("sampler1", 0);
+	glBindVertexArray(vaoID[0]);
+	glDrawElements(GL_TRIANGLES, size[0], GL_UNSIGNED_INT, 0);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -353,17 +356,21 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-	// Sets the mouse-button callback for the current window
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-		mouseCtl.LEFT_BUTTON = true;
-	}
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-		mouseCtl.LEFT_BUTTON = false;
-	}
 }
-
+float xstart = 400.0f, xoffset;
+float MouseSensitivity = 0.1f, yaw = 90.0f;
 void cursor_position_callback(GLFWwindow* window, double x, double y)
 {
+	xoffset = x - xstart;
+	xoffset *= MouseSensitivity;
+	xstart = x;
+	glm::vec3 shift;
+	GLfloat theta = glm::radians(yaw);
+	spaceshipCoordinate.rotation += theta;
+	shift.x = glm::sin(glm::radians(spaceshipCoordinate.rotation));
+	shift.z = glm::cos(glm::radians(spaceshipCoordinate.rotation));
+	windowView.viewPoint.x = spaceshipCoordinate.translation.x - shift.x;
+	windowView.viewPoint.z = spaceshipCoordinate.translation.z + shift.z;
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
