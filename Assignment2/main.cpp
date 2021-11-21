@@ -345,6 +345,8 @@ void paintGL(void)  //always run
 
 	
 }
+float xstart = 400.0f, xoffset;
+float MouseSensitivity = 0.1f, yaw = 90.0f;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -353,17 +355,20 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
-	// Sets the mouse-button callback for the current window
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-		mouseCtl.LEFT_BUTTON = true;
-	}
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
-		mouseCtl.LEFT_BUTTON = false;
-	}
 }
 
 void cursor_position_callback(GLFWwindow* window, double x, double y)
 {
+	xoffset = x - xstart;
+	xoffset *= MouseSensitivity;
+	xstart = x;
+	glm::vec3 shift;
+	GLfloat theta = glm::radians(yaw);
+	spaceshipCoordinate.rotation += theta;
+	shift.x = glm::sin(glm::radians(spaceshipCoordinate.rotation));
+	shift.z = glm::cos(glm::radians(spaceshipCoordinate.rotation));
+	windowView.viewPoint.x = spaceshipCoordinate.translation.x - shift.x;
+	windowView.viewPoint.z = spaceshipCoordinate.translation.z + shift.z;
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
