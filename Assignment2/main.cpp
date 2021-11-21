@@ -348,6 +348,8 @@ void paintGL(void)  //always run
 	glBindVertexArray(vaoID[0]);
 	glDrawElements(GL_TRIANGLES, size[0], GL_UNSIGNED_INT, 0);
 }
+float xstart = 400.0f, xoffset;
+float MouseSensitivity = 0.1f, yaw = 90.0f;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
