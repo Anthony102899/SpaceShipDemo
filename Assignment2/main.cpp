@@ -20,12 +20,11 @@ Student Name: LYU An
 #include <ctime>
 
 // screen setting
-const int SCR_WIDTH = 1000;
-const int SCR_HEIGHT = 1000;
+const int SCR_WIDTH = 1600;
+const int SCR_HEIGHT = 900;
 Shader myShader;
 GLuint vaoID[4];
 GLuint vboID[4];
-GLfloat rotation_y = 0.0f;
 glm::vec3 translation = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 endPoint = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 ambientLight(0.3f, 0.3f, 0.3f);
@@ -35,11 +34,6 @@ Texture craft_texture[2];
 Texture planet_texture[2];
 Texture rock_texture[2];
 Texture spacecraft_texture[2];
-GLuint slot_1 = 0;
-GLuint slot_2 = 0;
-int past = time((time_t*)NULL);
-int past1 = time((time_t*)NULL);
-int craft_flag = 0, craft_texture_flag = 0, craft_move_flag = 0;
 //struct for storing the movement of object
 struct ViewInf {
 	glm::vec3 viewPoint;
@@ -53,6 +47,13 @@ struct ObjCoordinate{
 	glm::vec3 translation;
 	GLfloat rotation;
 };
+struct MouseCtl{
+	double x_start;
+	double x_current;
+	double sensitivity;
+	double yaw;
+};
+MouseCtl mouse;
 ObjCoordinate spaceshipCoordinate;
 ObjCoordinate craftCoordinate1;
 ObjCoordinate craftCoordinate2;
@@ -71,6 +72,12 @@ struct Model {
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
 };
+
+void setView() {
+	windowView.viewPoint.x = spaceshipCoordinate.translation.x - glm::sin(glm::radians(mouse.yaw)) * 5.0f;
+	windowView.viewPoint.z = spaceshipCoordinate.translation.z + glm::cos(glm::radians(mouse.yaw)) * 5.0f;
+	windowView.endPoint = spaceshipCoordinate.translation;
+}
 
 Model loadOBJ(const char* objPath)
 {
@@ -197,7 +204,6 @@ void get_OpenGL_info()
 void sendDataToOpenGL()
 {
 	Model craft = loadOBJ("resources/craft/craft.obj");
-	Model craft = loadOBJ("resources/craft/craft.obj");
 	Model planet = loadOBJ("resources/planet/planet.obj");
 	Model rock = loadOBJ("resources/rock/rock.obj");
 	Model spacecraft = loadOBJ("resources/spacecraft/spacecraft.obj");
@@ -293,10 +299,6 @@ void sendDataToOpenGL()
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
 }
 
-glm::vec3 craft1_pos1 = glm::vec3(-1.0f, 0.0f, 0.5f);
-glm::vec3 craft1_pos2 = glm::vec3(-0.5f, 0.0f, 0.5f);
-glm::vec3 craft1_pos3 = glm::vec3(0.5f, 0.0f, 0.5f);
-glm::vec3 craft1_pos4 = glm::vec3(1.0f, 0.0f, 0.5f);
 void initializedGL(void) //run only once
 {
 	if (glewInit() != GLEW_OK) {
@@ -305,18 +307,19 @@ void initializedGL(void) //run only once
 
 	get_OpenGL_info();
 	sendDataToOpenGL();
-	// Initialize the view infomation and object's coordinate at beginning.
-	windowView.viewPoint = glm::vec3(0.0f, 3.0f, 2.0f);
-	windowView.endPoint = glm::vec3(0.0f, 0.0f, 0.0f);
-	spaceshipCoordinate.translation = glm::vec3(0.0f, 0.0f, 1.0f);
-	spaceshipCoordinate.rotation = 0.0f;
-	craftCoordinate1.translation = craft1_pos1;
-
+	/* initialize the view info */
+	windowView.viewPoint = glm::vec3(0.0f, 2.0f, 5.0f);
+	/* initialize the transformation of objects */
+	spaceshipCoordinate.translation = glm::vec3(0.0f, 0.0f, 0.0f);
+	windowView.endPoint = spaceshipCoordinate.translation;
+	spaceshipCoordinate.rotation = 180.0f;
+	/* Initialize the mouse control parameter */
+	mouse.x_start = 800.0f;
+	mouse.sensitivity = 0.1f;
+	mouse.yaw = 0.0f;
+	/* set the shader info */
 	myShader.setupShader("VertexShaderCode.glsl", "FragmentShaderCode.glsl");
 	myShader.use();
-
-	//TODO: set up the camera parameters	
-	//TODO: set up the vertex shader and fragment shader
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
@@ -329,16 +332,14 @@ void paintGL(void)  //always run
 	//TODO:
 	// 	glBindVertexArray(vaoID[4]);
 	//Set lighting information, such as position and color of lighting source
-	int now = time((time_t*)NULL);
 	myShader.setVec3("ambientLight", ambientLight);
 	myShader.setVec3("lightPosition", lightPosition);
-	glm::vec3 eyePosition(0.0f, 0.0f, 0.2f);
-	myShader.setVec3("eyePositionWorld", eyePosition);
+	myShader.setVec3("eyePositionWorld", windowView.viewPoint);
 
 	//Set transformation matrix for space craft
 	glm::mat4 modelTransformMatrix = glm::mat4(1.0f);
-	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
 	modelTransformMatrix = glm::translate(modelTransformMatrix, spaceshipCoordinate.translation);
+	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.001f, 0.001f, 0.001f));
 	modelTransformMatrix = glm::rotate(modelTransformMatrix, glm::radians(spaceshipCoordinate.rotation), glm::vec3(0.0f, 1.0f, 0.0f));
 	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
 
@@ -349,23 +350,28 @@ void paintGL(void)  //always run
 	myShader.setMat4("view", view);
 	int movable = 1;
 	myShader.setInt("movable", movable);
-	//Bind different textures
-	glm::mat4 projection = glm::perspective(glm::radians(30.0f), 1.0f, 0.1f, 20.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(30.0f), 1.78f, 0.1f, 20.0f);
 	myShader.setMat4("projection", projection);
-	int independent = 0;
+	int independent = 1;
 	myShader.setInt("independent", independent);
+
+
+	spacecraft_texture[0].bind(0);
 	myShader.setInt("sampler1", 0);
+	glBindVertexArray(vaoID[3]);
+	glDrawElements(GL_TRIANGLES, size[3], GL_UNSIGNED_INT, 0);
 
-	glBindVertexArray(vaoID[0]);
-	glm::mat4 modelTransformMatrix = glm::mat4(1.0f);
-	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
-	modelTransformMatrix = glm::translate(modelTransformMatrix, craftCoordinate1.translation);
+
+	modelTransformMatrix = glm::mat4(1.0f);
+	modelTransformMatrix = glm::translate(modelTransformMatrix, glm::vec3(1.5f, 0.0f, -5.0f));
+	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
 	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
-	glDrawElements(GL_TRIANGLES, size[0], GL_UNSIGNED_INT, 0);
 
+	planet_texture[0].bind(0);
+	myShader.setInt("sampler1", 0);
+	glBindVertexArray(vaoID[1]);
+	glDrawElements(GL_TRIANGLES, size[1], GL_UNSIGNED_INT, 0);
 }
-float xstart = 400.0f, xoffset;
-float MouseSensitivity = 0.1f, yaw = 90.0f;
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
@@ -375,20 +381,14 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 }
-float xstart = 400.0f, xoffset;
-float MouseSensitivity = 0.1f, yaw = 90.0f;
 void cursor_position_callback(GLFWwindow* window, double x, double y)
 {
-	xoffset = x - xstart;
-	xoffset *= MouseSensitivity;
-	xstart = x;
-	glm::vec3 shift;
-	GLfloat theta = glm::radians(yaw);
-	spaceshipCoordinate.rotation += theta;
-	shift.x = glm::sin(glm::radians(spaceshipCoordinate.rotation));
-	shift.z = glm::cos(glm::radians(spaceshipCoordinate.rotation));
-	windowView.viewPoint.x = spaceshipCoordinate.translation.x - shift.x;
-	windowView.viewPoint.z = spaceshipCoordinate.translation.z + shift.z;
+	double xoffset = x - mouse.x_start;
+	xoffset *= mouse.sensitivity;
+	mouse.x_start = x;
+	mouse.yaw += xoffset;
+	spaceshipCoordinate.rotation =  180 - mouse.yaw;
+	setView();
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
@@ -402,6 +402,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	// Sets the Keyboard callback for the current window.
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
+	if (key == GLFW_KEY_UP && action == GLFW_PRESS) {
+		spaceshipCoordinate.translation.z -= 0.3f * glm::cos(glm::radians(mouse.yaw));
+		spaceshipCoordinate.translation.x += 0.3f * glm::sin(glm::radians(mouse.yaw));
+		setView();
+	}
+	if (key == GLFW_KEY_DOWN && action == GLFW_PRESS) {
+		spaceshipCoordinate.translation.z += 0.3f * glm::cos(glm::radians(mouse.yaw));
+		spaceshipCoordinate.translation.x -= 0.3f * glm::sin(glm::radians(mouse.yaw));
+		setView();
+	}
 }
 
 
