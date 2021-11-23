@@ -197,7 +197,6 @@ void get_OpenGL_info()
 void sendDataToOpenGL()
 {
 	Model craft = loadOBJ("resources/craft/craft.obj");
-	Model craft = loadOBJ("resources/craft/craft.obj");
 	Model planet = loadOBJ("resources/planet/planet.obj");
 	Model rock = loadOBJ("resources/rock/rock.obj");
 	Model spacecraft = loadOBJ("resources/spacecraft/spacecraft.obj");
@@ -357,7 +356,7 @@ void paintGL(void)  //always run
 	myShader.setInt("sampler1", 0);
 
 	glBindVertexArray(vaoID[0]);
-	glm::mat4 modelTransformMatrix = glm::mat4(1.0f);
+	modelTransformMatrix = glm::mat4(1.0f);
 	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
 	modelTransformMatrix = glm::translate(modelTransformMatrix, craftCoordinate1.translation);
 	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
@@ -375,8 +374,6 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
 }
-float xstart = 400.0f, xoffset;
-float MouseSensitivity = 0.1f, yaw = 90.0f;
 void cursor_position_callback(GLFWwindow* window, double x, double y)
 {
 	xoffset = x - xstart;
