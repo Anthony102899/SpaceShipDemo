@@ -34,14 +34,14 @@ Texture craft_texture[2];
 Texture planet_texture[2];
 Texture rock_texture[2];
 Texture spacecraft_texture[2];
+
 //struct for storing the movement of object
+struct TimeCtl {
+
+};
 struct ViewInf {
 	glm::vec3 viewPoint;
 	glm::vec3 endPoint;
-};
-struct ViewShift {
-	glm::vec3 shift;
-
 };
 struct ObjCoordinate{
 	glm::vec3 translation;
@@ -51,7 +51,10 @@ struct MouseCtl{
 	double x_start;
 	double x_current;
 	double sensitivity;
+	float velocity;
+	int move_direction; // (1 2 3 4) stand for (up down left right) respectively.
 	double yaw;
+	int press_flag;
 };
 MouseCtl mouse;
 ObjCoordinate spaceshipCoordinate;
@@ -77,6 +80,27 @@ void setView() {
 	windowView.viewPoint.x = spaceshipCoordinate.translation.x - glm::sin(glm::radians(mouse.yaw)) * 5.0f;
 	windowView.viewPoint.z = spaceshipCoordinate.translation.z + glm::cos(glm::radians(mouse.yaw)) * 5.0f;
 	windowView.endPoint = spaceshipCoordinate.translation;
+}
+void updateMovement() {
+	if (mouse.press_flag == 1) {
+		if (mouse.move_direction == 1) {
+			spaceshipCoordinate.translation.z -= mouse.velocity * glm::cos(glm::radians(mouse.yaw));
+			spaceshipCoordinate.translation.x += mouse.velocity * glm::sin(glm::radians(mouse.yaw));
+		}
+		else if (mouse.move_direction == 2) {
+			spaceshipCoordinate.translation.z += mouse.velocity * glm::cos(glm::radians(mouse.yaw));
+			spaceshipCoordinate.translation.x -= mouse.velocity * glm::sin(glm::radians(mouse.yaw));
+		}
+		else if (mouse.move_direction == 3) {
+			spaceshipCoordinate.translation.z -= mouse.velocity * glm::sin(glm::radians(mouse.yaw));
+			spaceshipCoordinate.translation.x -= mouse.velocity * glm::cos(glm::radians(mouse.yaw));
+		}
+		else if (mouse.move_direction == 4) {
+			spaceshipCoordinate.translation.z += mouse.velocity * glm::sin(glm::radians(mouse.yaw));
+			spaceshipCoordinate.translation.x += mouse.velocity * glm::cos(glm::radians(mouse.yaw));
+		}
+		setView();
+	}
 }
 
 Model loadOBJ(const char* objPath)
@@ -308,7 +332,7 @@ void initializedGL(void) //run only once
 	get_OpenGL_info();
 	sendDataToOpenGL();
 	/* initialize the view info */
-	windowView.viewPoint = glm::vec3(0.0f, 2.0f, 5.0f);
+	windowView.viewPoint = glm::vec3(0.0f, 1.5f, 5.0f);
 	/* initialize the transformation of objects */
 	spaceshipCoordinate.translation = glm::vec3(0.0f, 0.0f, 0.0f);
 	windowView.endPoint = spaceshipCoordinate.translation;
@@ -317,6 +341,9 @@ void initializedGL(void) //run only once
 	mouse.x_start = 800.0f;
 	mouse.sensitivity = 0.1f;
 	mouse.yaw = 0.0f;
+	mouse.press_flag = 0;
+	mouse.move_direction = 0;
+	mouse.velocity = 0.05f;
 	/* set the shader info */
 	myShader.setupShader("VertexShaderCode.glsl", "FragmentShaderCode.glsl");
 	myShader.use();
@@ -365,12 +392,24 @@ void paintGL(void)  //always run
 	modelTransformMatrix = glm::mat4(1.0f);
 	modelTransformMatrix = glm::translate(modelTransformMatrix, glm::vec3(1.5f, 0.0f, -5.0f));
 	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+	modelTransformMatrix = glm::rotate(modelTransformMatrix, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
 	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
 
 	planet_texture[0].bind(0);
 	myShader.setInt("sampler1", 0);
 	glBindVertexArray(vaoID[1]);
 	glDrawElements(GL_TRIANGLES, size[1], GL_UNSIGNED_INT, 0);
+
+	modelTransformMatrix = glm::mat4(1.0f);
+	modelTransformMatrix = glm::translate(modelTransformMatrix, glm::vec3(-1.5f, 0.0f, -2.0f));
+	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.1f, 0.1f, 0.1f));
+	modelTransformMatrix = glm::rotate(modelTransformMatrix, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
+
+	craft_texture[0].bind(0);
+	myShader.setInt("sampler1", 0);
+	glBindVertexArray(vaoID[0]);
+	glDrawElements(GL_TRIANGLES, size[0], GL_UNSIGNED_INT, 0);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -403,14 +442,32 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 	if (key == GLFW_KEY_UP && action == GLFW_PRESS) {
-		spaceshipCoordinate.translation.z -= 0.3f * glm::cos(glm::radians(mouse.yaw));
-		spaceshipCoordinate.translation.x += 0.3f * glm::sin(glm::radians(mouse.yaw));
-		setView();
+		mouse.press_flag = 1;
+		mouse.move_direction = 1;
 	}
 	if (key == GLFW_KEY_DOWN && action == GLFW_PRESS) {
-		spaceshipCoordinate.translation.z += 0.3f * glm::cos(glm::radians(mouse.yaw));
-		spaceshipCoordinate.translation.x -= 0.3f * glm::sin(glm::radians(mouse.yaw));
-		setView();
+		mouse.press_flag = 1;
+		mouse.move_direction = 2;
+	}
+	if (key == GLFW_KEY_LEFT && action == GLFW_PRESS) {
+		mouse.press_flag = 1;
+		mouse.move_direction = 3;
+	}
+	if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS) {
+		mouse.press_flag = 1;
+		mouse.move_direction = 4;
+	}
+	if ((key == GLFW_KEY_UP || key == GLFW_KEY_DOWN || key == GLFW_KEY_RIGHT || key == GLFW_KEY_LEFT) && action == GLFW_RELEASE) {
+		mouse.press_flag = 0;
+		mouse.move_direction = 0;
+	}
+	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS) {
+		if (mouse.velocity == 0.2f) {
+			mouse.velocity = 0.05f;
+		}
+		else {
+			mouse.velocity = 0.2f;
+		}
 	}
 }
 
@@ -453,8 +510,17 @@ int main(int argc, char* argv[])
 
 	initializedGL();
 
+	double lastTime = glfwGetTime();
+	double deltaTime = 0, nowTime = 0;
+	static double INTERVAL = 0.0167f;
 	while (!glfwWindowShouldClose(window)) {
 		/* Render here */
+		nowTime = glfwGetTime();
+		deltaTime = nowTime - lastTime;
+		if (deltaTime >= INTERVAL) {
+			lastTime = nowTime;
+			updateMovement();
+		}
 		paintGL();
 
 		/* Swap front and back buffers */
