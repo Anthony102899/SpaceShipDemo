@@ -12,6 +12,7 @@ Student Name: LYU An
 #include "Shader.h"
 #include "Texture.h"
 
+#include <time.h>
 #include <math.h>
 #include <iostream>
 #include <fstream>
@@ -23,25 +24,39 @@ Student Name: LYU An
 const int SCR_WIDTH = 1600;
 const int SCR_HEIGHT = 900;
 Shader myShader;
-GLuint vaoID[4];
-GLuint vboID[4];
+GLuint vaoID[5];
+GLuint vboID[5];
 glm::vec3 translation = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 endPoint = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 ambientLight(0.3f, 0.3f, 0.3f);
 glm::vec3 lightPosition(0.0f, 1.0f, 0.0f);
-size_t size[4];
+size_t size[5];
+Texture trophy_texture[1];
 Texture craft_texture[2];
 Texture planet_texture[2];
 Texture rock_texture[2];
 Texture spacecraft_texture[2];
+int craft_texture_flag[3] = {0};
+int trophy_translation_flag = 0;
+int past = time((time_t*)NULL);
+float light_delta = 0.1f;
+float light_delta1 = 0.2f;
+int angle[200];
+float height[200];
+float distance_to_planet[200];
+float angle_z[200];
+int isGold[200];
+int Gold_paint_flag[200];
+int direction[3] = {1,0,1};
+double time_end;
+double time_start;
 //struct for storing the movement of object
+struct TimeCtl {
+
+};
 struct ViewInf {
 	glm::vec3 viewPoint;
 	glm::vec3 endPoint;
-};
-struct ViewShift {
-	glm::vec3 shift;
-
 };
 struct ObjCoordinate{
 	glm::vec3 translation;
@@ -51,13 +66,17 @@ struct MouseCtl{
 	double x_start;
 	double x_current;
 	double sensitivity;
+	float velocity;
+	int move_direction; // (1 2 3 4) stand for (up down left right) respectively.
 	double yaw;
+	int press_flag;
 };
 MouseCtl mouse;
 ObjCoordinate spaceshipCoordinate;
-ObjCoordinate craftCoordinate1;
-ObjCoordinate craftCoordinate2;
-ObjCoordinate craftCoordinate3;
+ObjCoordinate trophyCoordinate = { glm::vec3(10.0f, 0.0f, -10.0f), 0.0f };
+glm::vec3 craft1_trans = glm::vec3(-1.5f, 0.0f, -2.0f);
+glm::vec3 craft2_trans = glm::vec3(1.5f, 0.0f, -4.0f);
+glm::vec3 craft3_trans = glm::vec3(-1.5f, 0.0f, -6.0f);
 
 ViewInf windowView;
 // struct for storing the obj file
@@ -72,11 +91,39 @@ struct Model {
 	std::vector<Vertex> vertices;
 	std::vector<unsigned int> indices;
 };
-
+int allGoldCollected() {
+	for (int i = 0; i < 200; i++) {
+		if (isGold[i] == 1 && Gold_paint_flag[i] == 1) {
+			return 0;
+		}
+	}
+	return 1;
+}
 void setView() {
 	windowView.viewPoint.x = spaceshipCoordinate.translation.x - glm::sin(glm::radians(mouse.yaw)) * 5.0f;
 	windowView.viewPoint.z = spaceshipCoordinate.translation.z + glm::cos(glm::radians(mouse.yaw)) * 5.0f;
 	windowView.endPoint = spaceshipCoordinate.translation;
+}
+void updateMovement() {
+	if (mouse.press_flag == 1) {
+		if (mouse.move_direction == 1) {
+			spaceshipCoordinate.translation.z -= mouse.velocity * glm::cos(glm::radians(mouse.yaw));
+			spaceshipCoordinate.translation.x += mouse.velocity * glm::sin(glm::radians(mouse.yaw));
+		}
+		else if (mouse.move_direction == 2) {
+			spaceshipCoordinate.translation.z += mouse.velocity * glm::cos(glm::radians(mouse.yaw));
+			spaceshipCoordinate.translation.x -= mouse.velocity * glm::sin(glm::radians(mouse.yaw));
+		}
+		else if (mouse.move_direction == 3) {
+			spaceshipCoordinate.translation.z -= mouse.velocity * glm::sin(glm::radians(mouse.yaw));
+			spaceshipCoordinate.translation.x -= mouse.velocity * glm::cos(glm::radians(mouse.yaw));
+		}
+		else if (mouse.move_direction == 4) {
+			spaceshipCoordinate.translation.z += mouse.velocity * glm::sin(glm::radians(mouse.yaw));
+			spaceshipCoordinate.translation.x += mouse.velocity * glm::cos(glm::radians(mouse.yaw));
+		}
+		setView();
+	}
 }
 
 Model loadOBJ(const char* objPath)
@@ -203,6 +250,7 @@ void get_OpenGL_info()
 
 void sendDataToOpenGL()
 {
+	Model trophy = loadOBJ("resources/trophy/trophy.obj");
 	Model craft = loadOBJ("resources/craft/craft.obj");
 	Model planet = loadOBJ("resources/planet/planet.obj");
 	Model rock = loadOBJ("resources/rock/rock.obj");
@@ -212,14 +260,15 @@ void sendDataToOpenGL()
 	planet_texture[0].setupTexture("resources/planet/earthTexture.png");
 	planet_texture[1].setupTexture("resources/planet/earthNormal.png");
 	rock_texture[0].setupTexture("resources/rock/rockTexture.png");
-	rock_texture[1].setupTexture("resources/rock/gold.png");
+	rock_texture[1].setupTexture("resources/spacecraft/gold.png");
 	spacecraft_texture[0].setupTexture("resources/spacecraft/spacecraftTexture.png");
 	spacecraft_texture[1].setupTexture("resources/spacecraft/gold.png");
+	trophy_texture[0].setupTexture("resources/trophy/gold.png");
 
 	/*
 	Model 1 : Air Craft (enemies)
 	*/
-	glGenVertexArrays(4, vaoID);
+	glGenVertexArrays(5, vaoID);
 	glBindVertexArray(vaoID[0]);
 
 	glGenBuffers(1, &vboID[0]);
@@ -297,6 +346,26 @@ void sendDataToOpenGL()
 	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
+	/*
+	Model 5 : Trophy
+	*/
+	glBindVertexArray(vaoID[4]);
+
+	glGenBuffers(1, &vboID[4]);
+	glBindBuffer(GL_ARRAY_BUFFER, vboID[4]);
+	glBufferData(GL_ARRAY_BUFFER, trophy.vertices.size() * sizeof(Vertex), &trophy.vertices[0], GL_STATIC_DRAW);
+
+	GLuint ebo_trophy;
+	glGenBuffers(1, &ebo_trophy);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_trophy);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, trophy.indices.size() * sizeof(unsigned int), &trophy.indices[0], GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
+	size[4] = trophy.indices.size();
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, uv));
+	glEnableVertexAttribArray(2);
+	glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
 }
 
 void initializedGL(void) //run only once
@@ -308,25 +377,41 @@ void initializedGL(void) //run only once
 	get_OpenGL_info();
 	sendDataToOpenGL();
 	/* initialize the view info */
-	windowView.viewPoint = glm::vec3(0.0f, 2.0f, 5.0f);
+	windowView.viewPoint = glm::vec3(0.0f, 1.5f, 5.0f);
 	/* initialize the transformation of objects */
 	spaceshipCoordinate.translation = glm::vec3(0.0f, 0.0f, 0.0f);
 	windowView.endPoint = spaceshipCoordinate.translation;
 	spaceshipCoordinate.rotation = 180.0f;
 	/* Initialize the mouse control parameter */
 	mouse.x_start = 800.0f;
-	mouse.sensitivity = 0.1f;
+	mouse.sensitivity = 0.15f;
 	mouse.yaw = 0.0f;
+	mouse.press_flag = 0;
+	mouse.move_direction = 0;
+	mouse.velocity = 0.05f;
 	/* set the shader info */
 	myShader.setupShader("VertexShaderCode.glsl", "FragmentShaderCode.glsl");
 	myShader.use();
-
+	/* initialize the location for rocks */
+	for (int i = 0; i < 200; i++) {
+		angle[i] = rand() % 360;
+		angle_z[i] = rand() % 360;
+		height[i] = (float)(rand() % 40) / 100.0f - 0.2f;
+		distance_to_planet[i] = (float)(rand() % 100 + 200) / 100.0f;
+		isGold[i] = 0;
+		Gold_paint_flag[i] = 1;
+		//printf("i: %d", angle[i]);
+	}
+	for (int i = 0; i < 5; i++) {
+		isGold[i] = 1;
+	}
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_CULL_FACE);
 }
 
 void paintGL(void)  //always run
 {
+	int now = time((time_t*)NULL);
 	glClearColor(0.2f, 0.2f, 0.4f, 0.5f); //specify the background color, this is just an example
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	//TODO:
@@ -350,27 +435,162 @@ void paintGL(void)  //always run
 	myShader.setMat4("view", view);
 	int movable = 1;
 	myShader.setInt("movable", movable);
-	glm::mat4 projection = glm::perspective(glm::radians(30.0f), 1.78f, 0.1f, 20.0f);
+	glm::mat4 projection = glm::perspective(glm::radians(30.0f), 1.78f, 0.1f, 50.0f);
 	myShader.setMat4("projection", projection);
-	int independent = 1;
-	myShader.setInt("independent", independent);
-
-
-	spacecraft_texture[0].bind(0);
+	/*
+	spacecraft
+	*/
+	if (trophy_translation_flag == 1 && allGoldCollected() == 1) spacecraft_texture[1].bind(0);
+	else spacecraft_texture[0].bind(0);
 	myShader.setInt("sampler1", 0);
 	glBindVertexArray(vaoID[3]);
 	glDrawElements(GL_TRIANGLES, size[3], GL_UNSIGNED_INT, 0);
-
-
+	/*
+	planet
+	*/
 	modelTransformMatrix = glm::mat4(1.0f);
-	modelTransformMatrix = glm::translate(modelTransformMatrix, glm::vec3(1.5f, 0.0f, -5.0f));
-	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+	modelTransformMatrix = glm::translate(modelTransformMatrix, glm::vec3(1.5f, 0.0f, -15.0f));
+	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
+	modelTransformMatrix = glm::rotate(modelTransformMatrix, 0.3f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
 	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
 
 	planet_texture[0].bind(0);
 	myShader.setInt("sampler1", 0);
 	glBindVertexArray(vaoID[1]);
 	glDrawElements(GL_TRIANGLES, size[1], GL_UNSIGNED_INT, 0);
+	/*
+	craft1
+	*/
+	if (direction[0] == 1){
+		craft1_trans.x += 0.01 * (time_end - time_start);
+	}
+	else {
+		craft1_trans.x -= 0.01 * (time_end - time_start);
+	}
+	modelTransformMatrix = glm::mat4(1.0f);
+	modelTransformMatrix = glm::translate(modelTransformMatrix, craft1_trans);
+	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.05f, 0.05f, 0.05f));
+	modelTransformMatrix = glm::rotate(modelTransformMatrix, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
+	if (abs(craft1_trans.x - spaceshipCoordinate.translation.x) < 1.3f && abs(craft1_trans.z - spaceshipCoordinate.translation.z) < 0.6f) craft_texture_flag[0] = 1;
+	if (craft_texture_flag[0] == 0) craft_texture[0].bind(0);
+	if (craft_texture_flag[0] == 1 && now - past >= 1) {
+		int i = now % 2;
+		craft_texture[i].bind(0);
+	}
+	myShader.setInt("sampler1", 0);
+	glBindVertexArray(vaoID[0]);
+	glDrawElements(GL_TRIANGLES, size[0], GL_UNSIGNED_INT, 0);
+	/*
+	craft2
+	*/
+	if (direction[1] == 1) {
+		craft2_trans.x += 0.01 * (time_end - time_start);
+	}
+	else {
+		craft2_trans.x -= 0.01 * (time_end - time_start);
+	}
+	modelTransformMatrix = glm::mat4(1.0f);
+	modelTransformMatrix = glm::translate(modelTransformMatrix, craft2_trans);
+	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.05f, 0.05f, 0.05f));
+	modelTransformMatrix = glm::rotate(modelTransformMatrix, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
+	if (abs(craft2_trans.x - spaceshipCoordinate.translation.x) < 1.3f && abs(craft2_trans.z - spaceshipCoordinate.translation.z) < 0.6f) craft_texture_flag[1] = 1;
+	if (craft_texture_flag[1] == 0) craft_texture[0].bind(0);
+	if (craft_texture_flag[1] == 1 && now - past >= 1) {
+		int i = now % 2;
+		craft_texture[i].bind(0);
+	}
+	myShader.setInt("sampler1", 0);
+	glBindVertexArray(vaoID[0]);
+	glDrawElements(GL_TRIANGLES, size[0], GL_UNSIGNED_INT, 0);
+	/*
+	craft3
+	*/
+	if (direction[2] == 1) {
+		craft3_trans.x += 0.01 * (time_end - time_start);
+	}
+	else {
+		craft3_trans.x -= 0.01 * (time_end - time_start);
+	}
+	modelTransformMatrix = glm::mat4(1.0f);
+	modelTransformMatrix = glm::translate(modelTransformMatrix, craft3_trans);
+	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.05f, 0.05f, 0.05f));
+	modelTransformMatrix = glm::rotate(modelTransformMatrix, 0.5f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
+	if (abs(craft3_trans.x - spaceshipCoordinate.translation.x) < 1.3f && abs(craft3_trans.z - spaceshipCoordinate.translation.z) < 0.6f) craft_texture_flag[2] = 1;
+	if (craft_texture_flag[2] == 0) craft_texture[0].bind(0);
+	if (craft_texture_flag[2] == 1 && now - past >= 1) {
+		int i = now % 2;
+		craft_texture[i].bind(0);
+	}
+	myShader.setInt("sampler1", 0);
+	glBindVertexArray(vaoID[0]);
+	glDrawElements(GL_TRIANGLES, size[0], GL_UNSIGNED_INT, 0);
+	/*
+	trophy
+	*/
+	modelTransformMatrix = glm::mat4(1.0f);
+	modelTransformMatrix = glm::translate(modelTransformMatrix, trophyCoordinate.translation);
+	modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.3f, 0.3f, 0.3f));
+	modelTransformMatrix = glm::rotate(modelTransformMatrix, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
+	trophy_texture[0].bind(0);
+	if (abs(trophyCoordinate.translation.x - spaceshipCoordinate.translation.x) < 1.3f && abs(trophyCoordinate.translation.z - spaceshipCoordinate.translation.z) < 0.6f) trophy_translation_flag = 1;
+	if (trophy_translation_flag == 0) {
+		myShader.setInt("sampler1", 0);
+		glBindVertexArray(vaoID[4]);
+		glDrawElements(GL_TRIANGLES, size[4], GL_UNSIGNED_INT, 0);
+	}
+	/*
+	rocks
+	*/
+	for (int i = 0; i < 200; i++) {
+		glm::vec3 translation = glm::vec3(1.5f, height[i], -15.0f);
+		glm::vec3 translation1 = glm::vec3(distance_to_planet[i] * glm::cos(glm::radians((float)angle[i]) + 0.1 * (float)glfwGetTime()), 0.0f, distance_to_planet[i] * glm::sin(glm::radians((float)angle[i])+ 0.1 * (float)glfwGetTime()));
+		translation.x += translation1.x;
+		translation.z += translation1.z;
+		double distance_to_ship = sqrt(pow(abs(translation.x - spaceshipCoordinate.translation.x), 2) + pow(abs(translation.y - spaceshipCoordinate.translation.y), 2) + pow(abs(translation.z - spaceshipCoordinate.translation.z), 2));
+		if (distance_to_ship < 0.3f && isGold[i] == 1) Gold_paint_flag[i] = 0;
+		if (Gold_paint_flag[i] == 1) {
+			modelTransformMatrix = glm::mat4(1.0f);
+			modelTransformMatrix = glm::translate(modelTransformMatrix, translation);
+			modelTransformMatrix = glm::rotate(modelTransformMatrix, glm::radians(angle_z[i]), glm::vec3(0.0f, 0.0f, 1.0f));
+			modelTransformMatrix = glm::rotate(modelTransformMatrix, (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
+			modelTransformMatrix = glm::scale(modelTransformMatrix, glm::vec3(0.03f, 0.03f, 0.03f));
+			if (isGold[i] == 0) {
+				rock_texture[0].bind(0);
+			}
+			else {
+				rock_texture[1].bind(0);
+			}
+			myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
+			myShader.setInt("sampler", 0);
+			glBindVertexArray(vaoID[2]);
+			glDrawElements(GL_TRIANGLES, size[2], GL_UNSIGNED_INT, 0);
+			if (isGold[i] == 0) {
+				rock_texture[0].unbind();
+			}
+			else {
+				rock_texture[1].unbind();
+			}
+		}
+	}
+	/*
+	light
+	*/
+	glm::vec4 ambientLight = glm::vec4(2.0f, 2.0f, 2.0f, 1.0f);
+	myShader.setVec4("ambientLight", ambientLight);
+	glm::vec3 lightPositionWorld1 = glm::vec3(1.5f, 0.0f, -15.0f);
+	myShader.setVec3("lightPositionWorld1", lightPositionWorld1);
+	glm::vec3 lightcolor1(0.0f, 2.0f, 2.0f);
+	myShader.setVec3("lightcolor1", lightcolor1);
+	glm::vec3 lightPositionWorld2 = glm::vec3(5.0f, 0.0f, -15.0f);
+	myShader.setVec3("lightPositionWorld2", lightPositionWorld2);
+	glm::vec3 lightcolor2(1.0f, 0.843f, 0.0f);
+	myShader.setVec3("lightcolor2", lightcolor2);
+	myShader.setFloat("delta", light_delta);
+	myShader.setFloat("delta1", light_delta1);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -403,14 +623,40 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action, int mod
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
 		glfwSetWindowShouldClose(window, true);
 	if (key == GLFW_KEY_UP && action == GLFW_PRESS) {
-		spaceshipCoordinate.translation.z -= 0.3f * glm::cos(glm::radians(mouse.yaw));
-		spaceshipCoordinate.translation.x += 0.3f * glm::sin(glm::radians(mouse.yaw));
-		setView();
+		mouse.press_flag = 1;
+		mouse.move_direction = 1;
 	}
 	if (key == GLFW_KEY_DOWN && action == GLFW_PRESS) {
-		spaceshipCoordinate.translation.z += 0.3f * glm::cos(glm::radians(mouse.yaw));
-		spaceshipCoordinate.translation.x -= 0.3f * glm::sin(glm::radians(mouse.yaw));
-		setView();
+		mouse.press_flag = 1;
+		mouse.move_direction = 2;
+	}
+	if (key == GLFW_KEY_LEFT && action == GLFW_PRESS) {
+		mouse.press_flag = 1;
+		mouse.move_direction = 3;
+	}
+	if (key == GLFW_KEY_RIGHT && action == GLFW_PRESS) {
+		mouse.press_flag = 1;
+		mouse.move_direction = 4;
+	}
+	if ((key == GLFW_KEY_UP || key == GLFW_KEY_DOWN || key == GLFW_KEY_RIGHT || key == GLFW_KEY_LEFT) && action == GLFW_RELEASE) {
+		mouse.press_flag = 0;
+		mouse.move_direction = 0;
+	}
+	if (key == GLFW_KEY_LEFT_SHIFT && action == GLFW_PRESS) {
+		if (mouse.velocity == 0.2f) {
+			mouse.velocity = 0.05f;
+		}
+		else {
+			mouse.velocity = 0.2f;
+		}
+	}
+	if (key == GLFW_KEY_W && action == GLFW_PRESS)
+	{
+		light_delta = light_delta + 0.02f;
+	}
+	if (key == GLFW_KEY_S && action == GLFW_PRESS)
+	{
+		light_delta = light_delta - 0.02f;
 	}
 }
 
@@ -453,10 +699,28 @@ int main(int argc, char* argv[])
 
 	initializedGL();
 
+	double lastTime = glfwGetTime();
+	double deltaTime = 0, nowTime = 0;
+	time_start = glfwGetTime();
+	time_end = 0;
+	static double INTERVAL = 0.0167f;
 	while (!glfwWindowShouldClose(window)) {
 		/* Render here */
+		nowTime = glfwGetTime();
+		time_end = glfwGetTime();
+		deltaTime = nowTime - lastTime;
+		if (deltaTime >= INTERVAL) {
+			lastTime = nowTime;
+			updateMovement();
+		}
+		if (time_end - time_start >= 3.0f) {
+			time_start = time_end;
+			for (int i = 0; i < 3; i++) {
+				direction[i] = 1 - direction[i];
+			}
+		}
 		paintGL();
-
+		//printf("%d\n", glfwGetTime());
 		/* Swap front and back buffers */
 		glfwSwapBuffers(window);
 
