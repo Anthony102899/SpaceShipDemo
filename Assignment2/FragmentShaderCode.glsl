@@ -31,7 +31,7 @@ void main()
 	vec3 specularLight1 = vec3(s1);
 	float distance1 = length(lightPositionWorld1 - vertexPositionWorld);
 	float attenuation1 = 1.0f / (1 +  distance1 + distance1 * distance1);
-	Color = Color + ambientLight.xyz * lightcolor1 * attenuation1 * delta + clamp(diffuseLight1, 0, 1) * lightcolor1 * attenuation1 * delta + specularLight1 * lightcolor1 * attenuation1 * delta;
+	Color = Color + ambientLight.xyz * lightcolor1 * delta + clamp(diffuseLight1, 0, 1) * lightcolor1 * attenuation1 * delta + specularLight1 * lightcolor1 * attenuation1 * delta;
 
 	vec3 lightVectorWorld2 = normalize(lightPositionWorld2 - vertexPositionWorld);
 	float brightness2 = dot(lightVectorWorld2, normalize(normalWorld));
@@ -42,7 +42,7 @@ void main()
 	vec3 specularLight2 = vec3(s2);
 	float distance2 = length(lightPositionWorld2 - vertexPositionWorld);
 	float attenuation2 = 1.0f / (1 +  distance2 + distance2 * distance2);
-	Color = Color + ambientLight.xyz * lightcolor2 * attenuation2 * delta1 + clamp(diffuseLight2, 0, 1) * lightcolor2 * attenuation2 * delta1 + specularLight2 * lightcolor2 * attenuation2 * delta1;
+	Color = Color + ambientLight.xyz * lightcolor2 * delta1 + clamp(diffuseLight2, 0, 1) * lightcolor2 * attenuation2 * delta1 + specularLight2 * lightcolor2 * attenuation2 * delta1;
 
-	Color = Color + T;
+	Color = Color * T;
 }

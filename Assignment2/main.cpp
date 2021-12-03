@@ -78,6 +78,7 @@ glm::vec3 craft1_trans = glm::vec3(-1.5f, 0.0f, -2.0f);
 glm::vec3 craft2_trans = glm::vec3(1.5f, 0.0f, -4.0f);
 glm::vec3 craft3_trans = glm::vec3(-1.5f, 0.0f, -6.0f);
 
+
 ViewInf windowView;
 // struct for storing the obj file
 struct Vertex {
@@ -583,7 +584,7 @@ void paintGL(void)  //always run
 	myShader.setVec4("ambientLight", ambientLight);
 	glm::vec3 lightPositionWorld1 = glm::vec3(1.5f, 0.0f, -15.0f);
 	myShader.setVec3("lightPositionWorld1", lightPositionWorld1);
-	glm::vec3 lightcolor1(0.0f, 2.0f, 2.0f);
+	glm::vec3 lightcolor1(2.0f, 2.0f, 2.0f);
 	myShader.setVec3("lightcolor1", lightcolor1);
 	glm::vec3 lightPositionWorld2 = glm::vec3(5.0f, 0.0f, -15.0f);
 	myShader.setVec3("lightPositionWorld2", lightPositionWorld2);
