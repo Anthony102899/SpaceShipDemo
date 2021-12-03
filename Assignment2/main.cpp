@@ -78,6 +78,7 @@ glm::vec3 craft1_trans = glm::vec3(-1.5f, 0.0f, -2.0f);
 glm::vec3 craft2_trans = glm::vec3(1.5f, 0.0f, -4.0f);
 glm::vec3 craft3_trans = glm::vec3(-1.5f, 0.0f, -6.0f);
 
+
 ViewInf windowView;
 // struct for storing the obj file
 struct Vertex {
