@@ -39,5 +39,7 @@
   <ItemGroup>
     <None Include="VertexShaderCode.glsl" />
     <None Include="FragmentShaderCode.glsl" />
+    <None Include="SkyboxVertexShader.glsl" />
+    <None Include="SkyboxFragmentShader.glsl" />
   </ItemGroup>
 </Project>

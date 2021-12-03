@@ -1,13 +1,15 @@
 /*
 Student Information
-Student ID:1155124488
-Student Name: LYU An
+Student ID: 1155124469 1155124488
+Student Name: SHAN Yuzhen ,LYU An
 */
 
 #include "Dependencies/glew/glew.h"
 #include "Dependencies/GLFW/glfw3.h"
 #include "Dependencies/glm/glm.hpp"
 #include "Dependencies/glm/gtc/matrix_transform.hpp"
+#include "Dependencies/glm/gtc/type_ptr.hpp"
+#include "Dependencies/stb_image/stb_image.h"
 
 #include "Shader.h"
 #include "Texture.h"
@@ -24,8 +26,11 @@ Student Name: LYU An
 const int SCR_WIDTH = 1600;
 const int SCR_HEIGHT = 900;
 Shader myShader;
+Shader skyShader;
 GLuint vaoID[5];
 GLuint vboID[5];
+GLuint vao_skybox;
+GLuint vbo_skybox;
 glm::vec3 translation = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 endPoint = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 ambientLight(0.3f, 0.3f, 0.3f);
@@ -36,10 +41,11 @@ Texture craft_texture[2];
 Texture planet_texture[2];
 Texture rock_texture[2];
 Texture spacecraft_texture[2];
-int craft_texture_flag[3] = {0};
+Texture skybox_texture[6];
+int craft_texture_flag[3] = { 0 };
 int trophy_translation_flag = 0;
 int past = time((time_t*)NULL);
-float light_delta = 0.1f;
+float light_delta = 0.3f;
 float light_delta1 = 0.2f;
 int angle[200];
 float height[200];
@@ -47,9 +53,19 @@ float distance_to_planet[200];
 float angle_z[200];
 int isGold[200];
 int Gold_paint_flag[200];
-int direction[3] = {1,0,1};
+int direction[3] = { 1,0,1 };
 double time_end;
 double time_start;
+unsigned int cubemapTexture;
+std::vector<std::string> faces
+{
+	"resources/skybox/right.bmp",
+	"resources/skybox/left.bmp",
+	"resources/skybox/top.bmp",
+	"resources/skybox/bottom.bmp",
+	"resources/skybox/front.bmp",
+	"resources/skybox/back.bmp"
+};
 //struct for storing the movement of object
 struct TimeCtl {
 
@@ -58,11 +74,11 @@ struct ViewInf {
 	glm::vec3 viewPoint;
 	glm::vec3 endPoint;
 };
-struct ObjCoordinate{
+struct ObjCoordinate {
 	glm::vec3 translation;
 	GLfloat rotation;
 };
-struct MouseCtl{
+struct MouseCtl {
 	double x_start;
 	double x_current;
 	double sensitivity;
@@ -99,6 +115,37 @@ int allGoldCollected() {
 		}
 	}
 	return 1;
+}
+unsigned int loadCubemap(std::vector<std::string> faces)
+{
+	unsigned int textureID;
+	glGenTextures(1, &textureID);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+	int width, height, nrChannels;
+	for (unsigned int i = 0; i < faces.size(); i++)
+	{
+		unsigned char* data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+		if (data)
+		{
+			glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i,
+				0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data
+			);
+			stbi_image_free(data);
+		}
+		else
+		{
+			std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+			stbi_image_free(data);
+		}
+	}
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+	return textureID;
 }
 void setView() {
 	windowView.viewPoint.x = spaceshipCoordinate.translation.x - glm::sin(glm::radians(mouse.yaw)) * 5.0f;
@@ -265,7 +312,63 @@ void sendDataToOpenGL()
 	spacecraft_texture[0].setupTexture("resources/spacecraft/spacecraftTexture.png");
 	spacecraft_texture[1].setupTexture("resources/spacecraft/gold.png");
 	trophy_texture[0].setupTexture("resources/trophy/gold.png");
+	/*
+	Skybox
+	*/
 
+	float skyboxVertices[] = {
+
+		-25.0f, 25.0f, -25.0f, -1.0f, 1.0f, -1.0f,
+		-25.0f, -25.0f, -25.0f, -1.0f, -1.0f, -1.0f,
+		25.0f, -25.0f, -25.0f, 1.0f, -1.0f, -1.0f,
+		25.0f, -25.0f, -25.0f, 1.0f, -1.0f, -1.0f,
+		25.0f, 25.0f, -25.0f, 1.0f, 1.0f, -1.0f,
+		-25.0f, 25.0f, -25.0f, -1.0f, 1.0f, -1.0f,
+
+		-25.0f, -25.0f, 25.0f, -1.0f, -1.0f, 1.0f,
+		-25.0f, -25.0f, -25.0f, -1.0f, -1.0f, -1.0f,
+		-25.0f, 25.0f, -25.0f, -1.0f, 1.0f, -1.0f,
+		-25.0f, 25.0f, -25.0f, -1.0f, 1.0f, -1.0f,
+		-25.0f, 25.0f, 25.0f, -1.0f, 1.0f, 1.0f,
+		-25.0f, -25.0f, 25.0f, -1.0f, -1.0f, 1.0f,
+		
+		25.0f, -25.0f, -25.0f, 1.0f, -1.0f, -1.0f,
+		25.0f, -25.0f, 25.0f, 1.0f, -1.0f, 1.0f,
+		25.0f, 25.0f, 25.0f, 1.0f, 1.0f, 1.0f,
+		25.0f, 25.0f, 25.0f, 1.0f, 1.0f, 1.0f,
+		25.0f, 25.0f, -25.0f, 1.0f, 1.0f, -1.0f,
+		25.0f, -25.0f, -25.0f, 1.0f, -1.0f, -1.0f,
+		
+		-25.0f, -25.0f, 25.0f, -1.0f, -1.0f, 1.0f,
+		-25.0f, 25.0f, 25.0f, -1.0f, 1.0f, 1.0f,
+		25.0f, 25.0f, 25.0f, 1.0f, 1.0f, 1.0f,
+		25.0f, 25.0f, 25.0f, 1.0f, 1.0f, 1.0f,
+		25.0f, -25.0f, 25.0f, 1.0f, -1.0f, 1.0f,
+		-25.0f, -25.0f, 25.0f, -1.0f, -1.0f, 1.0f,
+
+		-25.0f, 25.0f, -25.0f, -1.0f, 1.0f, -1.0f,
+		25.0f, 25.0f, -25.0f, 1.0f, 1.0f, -1.0f,
+		25.0f, 25.0f, 25.0f, 1.0f, 1.0f, 1.0f,
+		25.0f, 25.0f, 25.0f, 1.0f, 1.0f, 1.0f,
+		-25.0f, 25.0f, 25.0f, -1.0f, 1.0f, 1.0f,
+		-25.0f, 25.0f, -25.0f, -1.0f, 1.0f, -1.0f,
+
+		-25.0f, -25.0f, -25.0f, -1.0f, -1.0f, -1.0f,
+		-25.0f, -25.0f, 25.0f, -1.0f, -1.0f, 1.0f,
+		25.0f, -25.0f, -25.0f, 1.0f, -1.0f, -1.0f,
+		25.0f, -25.0f, -25.0f, 1.0f, -1.0f, -1.0f,
+		-25.0f, -25.0f, 25.0f, -1.0f, -1.0f, 1.0f,
+		25.0f, -25.0f, 25.0f, 1.0f, -1.0f, 1.0f,
+	};
+	glGenVertexArrays(1, &vao_skybox);
+	glBindVertexArray(vao_skybox);
+	glGenBuffers(1, &vbo_skybox);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo_skybox);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(skyboxVertices), &skyboxVertices, GL_STATIC_DRAW);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
+	glEnableVertexAttribArray(1);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
 	/*
 	Model 1 : Air Craft (enemies)
 	*/
@@ -275,7 +378,7 @@ void sendDataToOpenGL()
 	glGenBuffers(1, &vboID[0]);
 	glBindBuffer(GL_ARRAY_BUFFER, vboID[0]);
 	glBufferData(GL_ARRAY_BUFFER, craft.vertices.size() * sizeof(Vertex), &craft.vertices[0], GL_STATIC_DRAW);
-	
+
 	GLuint ebo_craft;
 	glGenBuffers(1, &ebo_craft);
 	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_craft);
@@ -374,7 +477,7 @@ void initializedGL(void) //run only once
 	if (glewInit() != GLEW_OK) {
 		std::cout << "GLEW not OK." << std::endl;
 	}
-
+	cubemapTexture = loadCubemap(faces);
 	get_OpenGL_info();
 	sendDataToOpenGL();
 	/* initialize the view info */
@@ -391,8 +494,10 @@ void initializedGL(void) //run only once
 	mouse.move_direction = 0;
 	mouse.velocity = 0.05f;
 	/* set the shader info */
+	skyShader.setupShader("SkyboxVertexShader.glsl", "SkyboxFragmentShader.glsl");
 	myShader.setupShader("VertexShaderCode.glsl", "FragmentShaderCode.glsl");
 	myShader.use();
+	//skyShader.setupShader("SkyboxVertexShader.glsl", "SkyboxFragmentShader.glsl");
 	/* initialize the location for rocks */
 	for (int i = 0; i < 200; i++) {
 		angle[i] = rand() % 360;
@@ -412,16 +517,46 @@ void initializedGL(void) //run only once
 
 void paintGL(void)  //always run
 {
-	int now = time((time_t*)NULL);
 	glClearColor(0.2f, 0.2f, 0.4f, 0.5f); //specify the background color, this is just an example
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	/* skybox */
+	skyShader.use();
+	skyShader.setInt("skybox", 0);
+	glm::mat4 view = glm::lookAt(windowView.viewPoint,
+		windowView.endPoint,
+		glm::vec3(0.0f, 1.0f, 0.0f));
+	view = glm::mat4(glm::mat3(view));
+	skyShader.setMat4("view", view);
+	glm::mat4 projection = glm::perspective(glm::radians(30.0f), 1.78f, 0.1f, 100.0f);
+	skyShader.setMat4("projection", projection);
+	glBindVertexArray(vao_skybox);
+	glActiveTexture(GL_TEXTURE0);
+	glBindTexture(GL_TEXTURE_CUBE_MAP, cubemapTexture);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+
+
+	myShader.use();
+	int now = time((time_t*)NULL);
+	myShader.setInt("normalMapping_flag", GL_FALSE);
 	//TODO:
 	// 	glBindVertexArray(vaoID[4]);
 	//Set lighting information, such as position and color of lighting source
-	myShader.setVec3("ambientLight", ambientLight);
-	myShader.setVec3("lightPosition", lightPosition);
 	myShader.setVec3("eyePositionWorld", windowView.viewPoint);
-
+	/*
+	light
+	*/
+	glm::vec4 ambientLight = glm::vec4(2.0f, 2.0f, 2.0f, 1.0f);
+	myShader.setVec4("ambientLight", ambientLight);
+	glm::vec3 lightPositionWorld1 = glm::vec3(1.5f, 3.0f, -15.0f);
+	myShader.setVec3("lightPositionWorld1", lightPositionWorld1);
+	glm::vec3 lightcolor1(1.0f, 1.0f, 1.0f);
+	myShader.setVec3("lightcolor1", lightcolor1);
+	glm::vec3 lightPositionWorld2 = glm::vec3(5.0f, 3.0f, -15.0f);
+	myShader.setVec3("lightPositionWorld2", lightPositionWorld2);
+	glm::vec3 lightcolor2(1.0f, 0.843f, 0.0f);
+	myShader.setVec3("lightcolor2", lightcolor2);
+	myShader.setFloat("delta", light_delta);
+	myShader.setFloat("delta1", light_delta1);
 	//Set transformation matrix for space craft
 	glm::mat4 modelTransformMatrix = glm::mat4(1.0f);
 	modelTransformMatrix = glm::translate(modelTransformMatrix, spaceshipCoordinate.translation);
@@ -429,23 +564,23 @@ void paintGL(void)  //always run
 	modelTransformMatrix = glm::rotate(modelTransformMatrix, glm::radians(spaceshipCoordinate.rotation), glm::vec3(0.0f, 1.0f, 0.0f));
 	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
 
-
-	glm::mat4 view = glm::lookAt(windowView.viewPoint,
+	view = glm::lookAt(windowView.viewPoint,
 		windowView.endPoint,
 		glm::vec3(0.0f, 1.0f, 0.0f));
 	myShader.setMat4("view", view);
 	int movable = 1;
 	myShader.setInt("movable", movable);
-	glm::mat4 projection = glm::perspective(glm::radians(30.0f), 1.78f, 0.1f, 50.0f);
 	myShader.setMat4("projection", projection);
 	/*
 	spacecraft
 	*/
-	if (trophy_translation_flag == 1 && allGoldCollected() == 1) spacecraft_texture[1].bind(0);
+	if (trophy_translation_flag == 1 || allGoldCollected() == 1) spacecraft_texture[1].bind(0);
 	else spacecraft_texture[0].bind(0);
 	myShader.setInt("sampler1", 0);
 	glBindVertexArray(vaoID[3]);
 	glDrawElements(GL_TRIANGLES, size[3], GL_UNSIGNED_INT, 0);
+	if (trophy_translation_flag == 1 || allGoldCollected() == 1) spacecraft_texture[1].unbind();
+	else spacecraft_texture[0].unbind();
 	/*
 	planet
 	*/
@@ -455,14 +590,20 @@ void paintGL(void)  //always run
 	modelTransformMatrix = glm::rotate(modelTransformMatrix, 0.3f * (float)glfwGetTime(), glm::vec3(0.0f, 1.0f, 0.0f));
 	myShader.setMat4("modelTransformMatrix", modelTransformMatrix);
 
+	myShader.setInt("normalMapping_flag", 1);
 	planet_texture[0].bind(0);
+	planet_texture[1].bind(1);
 	myShader.setInt("sampler1", 0);
+	myShader.setInt("sampler2", 1);
 	glBindVertexArray(vaoID[1]);
 	glDrawElements(GL_TRIANGLES, size[1], GL_UNSIGNED_INT, 0);
+	myShader.setInt("normalMapping_flag", 0);
+	planet_texture[0].unbind();
+	planet_texture[1].unbind();
 	/*
 	craft1
 	*/
-	if (direction[0] == 1){
+	if (direction[0] == 1) {
 		craft1_trans.x += 0.01 * (time_end - time_start);
 	}
 	else {
@@ -548,7 +689,7 @@ void paintGL(void)  //always run
 	*/
 	for (int i = 0; i < 200; i++) {
 		glm::vec3 translation = glm::vec3(1.5f, height[i], -15.0f);
-		glm::vec3 translation1 = glm::vec3(distance_to_planet[i] * glm::cos(glm::radians((float)angle[i]) + 0.1 * (float)glfwGetTime()), 0.0f, distance_to_planet[i] * glm::sin(glm::radians((float)angle[i])+ 0.1 * (float)glfwGetTime()));
+		glm::vec3 translation1 = glm::vec3(distance_to_planet[i] * glm::cos(glm::radians((float)angle[i]) + 0.1 * (float)glfwGetTime()), 0.0f, distance_to_planet[i] * glm::sin(glm::radians((float)angle[i]) + 0.1 * (float)glfwGetTime()));
 		translation.x += translation1.x;
 		translation.z += translation1.z;
 		double distance_to_ship = sqrt(pow(abs(translation.x - spaceshipCoordinate.translation.x), 2) + pow(abs(translation.y - spaceshipCoordinate.translation.y), 2) + pow(abs(translation.z - spaceshipCoordinate.translation.z), 2));
@@ -577,21 +718,6 @@ void paintGL(void)  //always run
 			}
 		}
 	}
-	/*
-	light
-	*/
-	glm::vec4 ambientLight = glm::vec4(2.0f, 2.0f, 2.0f, 1.0f);
-	myShader.setVec4("ambientLight", ambientLight);
-	glm::vec3 lightPositionWorld1 = glm::vec3(1.5f, 0.0f, -15.0f);
-	myShader.setVec3("lightPositionWorld1", lightPositionWorld1);
-	glm::vec3 lightcolor1(2.0f, 2.0f, 2.0f);
-	myShader.setVec3("lightcolor1", lightcolor1);
-	glm::vec3 lightPositionWorld2 = glm::vec3(5.0f, 0.0f, -15.0f);
-	myShader.setVec3("lightPositionWorld2", lightPositionWorld2);
-	glm::vec3 lightcolor2(1.0f, 0.843f, 0.0f);
-	myShader.setVec3("lightcolor2", lightcolor2);
-	myShader.setFloat("delta", light_delta);
-	myShader.setFloat("delta1", light_delta1);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -608,7 +734,7 @@ void cursor_position_callback(GLFWwindow* window, double x, double y)
 	xoffset *= mouse.sensitivity;
 	mouse.x_start = x;
 	mouse.yaw += xoffset;
-	spaceshipCoordinate.rotation =  180 - mouse.yaw;
+	spaceshipCoordinate.rotation = 180 - mouse.yaw;
 	setView();
 }
 
@@ -681,7 +807,7 @@ int main(int argc, char* argv[])
 #endif
 
 	/* Create a windowed mode window and its OpenGL context */
-	window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Assignment 2", NULL, NULL);
+	window = glfwCreateWindow(SCR_WIDTH, SCR_HEIGHT, "Skyship", NULL, NULL);
 	if (!window) {
 		std::cout << "Failed to create GLFW window" << std::endl;
 		glfwTerminate();
@@ -693,7 +819,7 @@ int main(int argc, char* argv[])
 
 	/*register callback functions*/
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-	glfwSetKeyCallback(window, key_callback);                                                                
+	glfwSetKeyCallback(window, key_callback);
 	glfwSetScrollCallback(window, scroll_callback);
 	glfwSetCursorPosCallback(window, cursor_position_callback);
 	glfwSetMouseButtonCallback(window, mouse_button_callback);
